@@ -70,6 +70,26 @@ Do not interpret Linux support as a claim that every distribution, desktop envir
 
 Clone the repository or use GitHub's **Download ZIP**, then extract it to a normal user-writable folder. The repository root is itself the runnable distribution: `PortaMCP.exe` and `PortaMCP` live beside the application sources and resolve all required files relative to that root. No `dist/` folder or separate release archive is required for normal use.
 
+If Git is already installed, the direct clone path is:
+
+**Windows (PowerShell):**
+
+```powershell
+git clone https://github.com/TNLegend/PortaMCP.git
+cd PortaMCP
+.\PortaMCP.exe
+```
+
+**Linux:**
+
+```bash
+git clone https://github.com/TNLegend/PortaMCP.git
+cd PortaMCP
+./PortaMCP
+```
+
+Git is needed only for the `git clone` acquisition step and for PortaMCP's optional Git tools. If Git is not installed yet, use GitHub's **Download ZIP** instead; PortaMCP does not require a system Git installation just to bootstrap and run on Windows. On Linux, the native launcher can install Git together with the other supported OS prerequisites after the project files are already present.
+
 End users do not need to run a setup script or create a virtual environment themselves. Optional release archives may still be provided for convenience, but they are not required.
 
 ### 2. Launch PortaMCP
@@ -177,7 +197,11 @@ PortaMCP does not silently expose the machine to the Internet. Remote access is 
 
 For OAuth, enter only the public HTTPS base URL, without `/mcp`, query parameters, or fragments. PortaMCP validates the URL and adds the public hostname to the transport's allowed-host set while retaining loopback hosts.
 
-The Control Center can detect a Tailscale DNS name when the Tailscale CLI is available. You can also use a manually managed HTTPS tunnel or reverse proxy. Tunnel provisioning, access-control rules, certificates, and firewall policy remain under your control.
+The Control Center can detect a Tailscale DNS name when the Tailscale CLI is available. You can also use a manually managed HTTPS tunnel or reverse proxy.
+
+**Tailscale itself is an external prerequisite for the Tailscale Funnel path.** PortaMCP does not install Tailscale, create a Tailscale account, or sign the machine into a tailnet. Install Tailscale and sign in once using Tailscale's normal setup flow. The tailnet must also permit Funnel; if Tailscale requires one-time Funnel enablement, follow the prompt it provides. Once the Tailscale CLI is installed and connected, PortaMCP can detect the machine's Tailscale DNS URL and recover/reopen the Funnel for the configured PortaMCP port. On Linux, if `tailscaled` requires local operator permission, the Control Center can request the one-time `tailscale set --operator=<user>` change through PolicyKit.
+
+Tailscale is **not** required for Local / No Auth mode, and OAuth can also use another HTTPS tunnel or reverse proxy that you manage. Tunnel provisioning, account access, tailnet policy, certificates outside Tailscale, and firewall policy remain under your control.
 
 For remote use, prefer an authenticated profile and restrict who can reach the public endpoint.
 
