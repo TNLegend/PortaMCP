@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "PortaMCP Chrome Bridge",
+  "version": "1.0.0",
+  "description": "Local bridge that lets PortaMCP inspect and control tabs in this Chrome profile with explicit debugger permission.",
+  "permissions": ["debugger", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "service_worker.js"
+  },
+  "action": {
+    "default_title": "PortaMCP Chrome Bridge"
+  }
+}

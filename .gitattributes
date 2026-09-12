@@ -1,0 +1,14 @@
+# Keep cross-platform launcher/source line endings deterministic.
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.c text eol=lf
+*.cs text eol=crlf
+*.ps1 text eol=crlf
+
+# Runnable/binary artifacts must never be line-ending converted.
+PortaMCP -text
+PortaMCP.exe -text
+*.zip -text
+*.png -text
+*.ico -text

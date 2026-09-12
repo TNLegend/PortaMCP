@@ -1,0 +1,12 @@
+prune .portamcp
+prune .venv
+prune .venv-linux
+prune build
+prune dist
+prune backups
+prune private-captures
+exclude config.json
+exclude chrome_extension/bridge_config.js
+global-exclude *.before_* *.bak *.tmp *.log *.log.* *.jsonl *.pyc
+global-exclude .env .env.* *.secret *.key *.pem
+global-exclude oauth_state*.json *_token.txt *_password.txt
