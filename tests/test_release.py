@@ -2197,6 +2197,23 @@ def test_control_center_release_text_is_ascii_clean_and_current() -> None:
     assert "self.stop_server(ask=False)" in reset
 
 
+def test_control_center_support_prompt_and_donation_link_are_wired() -> None:
+    source = (ROOT / "porta_mcp" / "control_center.py").read_text(encoding="utf-8")
+    assert 'SUPPORT_URL = "https://buymeacoffee.com/tnlegend"' in source
+    assert "self.after(650, self._show_support_popup)" in source
+    assert "def _show_support_popup" in source
+    assert "Help PortaMCP keep growing" in source
+    assert "Support is optional - closing this window does not limit PortaMCP." in source
+    assert "Buy me a coffee" in source
+    assert "Maybe later" in source
+    assert "def _donate_from_popup" in source
+    assert "def _close_support_popup" in source
+    assert source.count("webbrowser.open_new_tab(SUPPORT_URL)") == 2
+    assert 'text="\\u2615  Support PortaMCP"' in source
+    assert 'text="\\u2764\\ufe0f  Thank you!"' in source
+    assert "\\U0001F622  Maybe next time - thanks for using PortaMCP!" in source
+
+
 def test_control_center_navigation_is_cached_and_setup_check_is_async() -> None:
     source = (ROOT / "porta_mcp" / "control_center.py").read_text(encoding="utf-8")
     routing = source.split("def show_page", 1)[1].split("# ---------- reusable UI ----------", 1)[0]

@@ -4,6 +4,7 @@ import queue
 import subprocess
 import threading
 import time
+import webbrowser
 from collections import deque
 from tkinter import filedialog, messagebox
 from typing import Any
@@ -16,6 +17,7 @@ from . import control_center_backend as backend
 APP_NAME = "PortaMCP"
 APP_SUBTITLE = "Universal MCP Control Center"
 APP_VERSION = "0.6.0"
+SUPPORT_URL = "https://buymeacoffee.com/tnlegend"
 
 BG = "#07111F"
 SIDEBAR = "#081523"
@@ -87,6 +89,7 @@ class PortaMCPApp(ctk.CTk):
         self._dependency_check_running = False
         self._dependency_check_last = 0.0
         self._dependency_installed: bool | None = None
+        self._support_popup: ctk.CTkToplevel | None = None
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -108,6 +111,7 @@ class PortaMCPApp(ctk.CTk):
         self.show_page("dashboard")
         self.after(250, self._poll_logs)
         self._schedule_runtime_refresh(500)
+        self.after(650, self._show_support_popup)
 
     # ---------- shell ----------
     def _build_sidebar(self) -> None:
@@ -250,6 +254,21 @@ class PortaMCPApp(ctk.CTk):
 
         right = ctk.CTkFrame(top, fg_color="transparent")
         right.grid(row=0, column=1, sticky="e")
+        self.support_button = ctk.CTkButton(
+            right,
+            text="\u2615  Support PortaMCP",
+            width=152,
+            height=32,
+            corner_radius=11,
+            fg_color="#3A2410",
+            hover_color="#5A3515",
+            border_width=1,
+            border_color="#B8792A",
+            text_color="#FFD79A",
+            font=ctk.CTkFont("Segoe UI", 10, "bold"),
+            command=self._open_support_page,
+        )
+        self.support_button.pack(side="left", padx=(0, 10))
         self.version_pill = ctk.CTkLabel(
             right,
             text=f"  v{APP_VERSION}  ",
@@ -280,6 +299,182 @@ class PortaMCPApp(ctk.CTk):
             font=ctk.CTkFont("Segoe UI", 9, "bold"),
         )
         self.status_pill.pack(side="left")
+
+    def _open_support_page(self) -> None:
+        try:
+            webbrowser.open_new_tab(SUPPORT_URL)
+        except Exception as exc:
+            messagebox.showerror("PortaMCP", f"Could not open the support page:\n{exc}")
+            return
+        self._animate_support_button()
+
+    def _animate_support_button(self) -> None:
+        button = getattr(self, "support_button", None)
+        if button is None or not button.winfo_exists():
+            return
+        button.configure(
+            text="\u2764\ufe0f  Thank you!",
+            fg_color="#431A2A",
+            hover_color="#572138",
+            border_color="#EC4899",
+            text_color="#FFD6E7",
+        )
+
+        def restore() -> None:
+            if button.winfo_exists():
+                button.configure(
+                    text="\u2615  Support PortaMCP",
+                    fg_color="#3A2410",
+                    hover_color="#5A3515",
+                    border_color="#B8792A",
+                    text_color="#FFD79A",
+                )
+
+        self.after(1300, restore)
+
+    def _show_support_popup(self) -> None:
+        existing = self._support_popup
+        if existing is not None and existing.winfo_exists():
+            existing.deiconify()
+            existing.lift()
+            existing.focus_force()
+            return
+
+        popup = ctk.CTkToplevel(self, fg_color=BG)
+        self._support_popup = popup
+        popup.title("Support PortaMCP")
+        popup.geometry("570x410")
+        popup.resizable(False, False)
+        popup.transient(self)
+        popup.protocol("WM_DELETE_WINDOW", self._close_support_popup)
+        popup.grid_columnconfigure(0, weight=1)
+        popup.grid_rowconfigure(0, weight=1)
+
+        card = ctk.CTkFrame(
+            popup,
+            fg_color=CARD,
+            corner_radius=18,
+            border_width=1,
+            border_color="#6E4A20",
+        )
+        card.grid(row=0, column=0, sticky="nsew", padx=18, pady=18)
+        card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            card,
+            text="\u2615",
+            text_color="#FFD79A",
+            font=ctk.CTkFont("Segoe UI Emoji", 42),
+        ).grid(row=0, column=0, pady=(28, 5))
+        ctk.CTkLabel(
+            card,
+            text="Help PortaMCP keep growing",
+            text_color=TEXT,
+            font=ctk.CTkFont("Segoe UI", 23, "bold"),
+        ).grid(row=1, column=0, padx=24, pady=(0, 8))
+        ctk.CTkLabel(
+            card,
+            text=(
+                "If PortaMCP helps you, consider supporting its development. "
+                "Donations help fund new tools, cross-platform testing, maintenance, "
+                "and future improvements."
+            ),
+            text_color="#B8C9DB",
+            font=ctk.CTkFont("Segoe UI", 11),
+            justify="center",
+            wraplength=470,
+        ).grid(row=2, column=0, padx=30, pady=(0, 10))
+        ctk.CTkLabel(
+            card,
+            text="Support is optional - closing this window does not limit PortaMCP.",
+            text_color=MUTED,
+            font=ctk.CTkFont("Segoe UI", 9),
+        ).grid(row=3, column=0, padx=24, pady=(0, 18))
+
+        self._support_feedback = ctk.CTkLabel(
+            card,
+            text="",
+            height=28,
+            text_color="#FFD6E7",
+            font=ctk.CTkFont("Segoe UI Emoji", 11, "bold"),
+        )
+        self._support_feedback.grid(row=4, column=0, padx=20, pady=(0, 2))
+
+        actions = ctk.CTkFrame(card, fg_color="transparent")
+        actions.grid(row=5, column=0, pady=(4, 28))
+        self._support_donate_button = ctk.CTkButton(
+            actions,
+            text="\u2615  Buy me a coffee",
+            width=188,
+            height=43,
+            corner_radius=12,
+            fg_color="#B86A16",
+            hover_color="#D47A19",
+            text_color="#FFF7E8",
+            font=ctk.CTkFont("Segoe UI", 11, "bold"),
+            command=self._donate_from_popup,
+        )
+        self._support_donate_button.pack(side="left", padx=(0, 10))
+        self._support_close_button = ctk.CTkButton(
+            actions,
+            text="Maybe later",
+            width=132,
+            height=43,
+            corner_radius=12,
+            fg_color="#142337",
+            hover_color="#1D314A",
+            border_width=1,
+            border_color=BORDER,
+            text_color="#B6C7D9",
+            font=ctk.CTkFont("Segoe UI", 10, "bold"),
+            command=self._close_support_popup,
+        )
+        self._support_close_button.pack(side="left")
+
+        popup.update_idletasks()
+        x = self.winfo_rootx() + max(0, (self.winfo_width() - popup.winfo_width()) // 2)
+        y = self.winfo_rooty() + max(0, (self.winfo_height() - popup.winfo_height()) // 2)
+        popup.geometry(f"+{x}+{y}")
+        popup.lift()
+        popup.focus_force()
+        try:
+            popup.grab_set()
+        except Exception:
+            pass
+
+    def _donate_from_popup(self) -> None:
+        try:
+            webbrowser.open_new_tab(SUPPORT_URL)
+        except Exception as exc:
+            messagebox.showerror("PortaMCP", f"Could not open the support page:\n{exc}")
+            return
+        feedback = getattr(self, "_support_feedback", None)
+        if feedback is not None and feedback.winfo_exists():
+            feedback.configure(text="\u2764\ufe0f  Thank you for supporting PortaMCP!")
+        button = getattr(self, "_support_donate_button", None)
+        if button is not None and button.winfo_exists():
+            button.configure(text="\u2764\ufe0f  Thank you!", state="disabled", fg_color="#7A2948")
+        self._animate_support_button()
+        self.after(850, self._destroy_support_popup)
+
+    def _close_support_popup(self) -> None:
+        feedback = getattr(self, "_support_feedback", None)
+        if feedback is not None and feedback.winfo_exists():
+            feedback.configure(text="\U0001F622  Maybe next time - thanks for using PortaMCP!")
+        close_button = getattr(self, "_support_close_button", None)
+        if close_button is not None and close_button.winfo_exists():
+            close_button.configure(state="disabled")
+        self.after(550, self._destroy_support_popup)
+
+    def _destroy_support_popup(self) -> None:
+        popup = self._support_popup
+        self._support_popup = None
+        if popup is not None and popup.winfo_exists():
+            try:
+                popup.grab_release()
+            except Exception:
+                pass
+            popup.destroy()
 
     # ---------- routing ----------
     def show_page(self, page: str) -> None:
