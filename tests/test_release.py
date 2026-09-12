@@ -816,7 +816,6 @@ def test_public_text_surface_has_no_stale_client_or_machine_terms() -> None:
     extensions = {".py", ".pyw", ".md", ".toml", ".txt", ".json", ".js", ".cs", ".c", ".ps1", ".sh"}
     banned = (
         "co" + "dex",
-        "chat" + "gpt",
         "open" + "ai",
         "mcp-security-" + "framework",
         "chat" + "gpt_oauth",

@@ -301,23 +301,78 @@ Once the public route is working, the URL you normally give a remote MCP client 
 https://YOUR-PUBLIC-HOST/mcp
 ```
 
-The exact menu names depend on the client and account plan. Client products change independently of PortaMCP, so also check their current official documentation.
+The examples below show clients that have been exercised with PortaMCP. PortaMCP itself remains **client-neutral**: these clients are optional front ends, not dependencies. Menu names can change as client products evolve, so use the current equivalent if a label has moved.
 
-### Claude
+> [!IMPORTANT]
+> A cloud client can only reach PortaMCP through a public HTTPS route. Keep **OAuth** or **Bearer Token** enabled for remote use, and grant only the PortaMCP security profile, filesystem scopes, and client-side permissions you actually want that client to have.
 
-PortaMCP has also been tested with Claude's remote custom connectors.
+### ChatGPT
 
-1. In PortaMCP choose **OAuth**, configure the public HTTPS base URL, and start the server.
-2. In Claude open **Customize > Connectors**.
-3. Choose **Add custom connector** (wording can vary by plan).
-4. Enter:
+PortaMCP has been tested with ChatGPT using a custom MCP plugin over the public HTTPS/OAuth path.
+
+1. Start PortaMCP with the **OAuth** profile, configure the public HTTPS base URL, and confirm that `https://YOUR-PUBLIC-HOST/healthz` is reachable.
+2. In ChatGPT open **Settings > Security and login** and enable **Developer mode**. ChatGPT marks this setting as elevated risk because it permits unverified/custom connectors.
+3. Open **Plugins** from the ChatGPT sidebar, then click the **+** button to create a plugin.
+4. In **New Plugin** enter a name such as `PortaMCP`, choose **Server URL**, and enter:
 
 ```text
 https://YOUR-PUBLIC-HOST/mcp
 ```
 
-5. Add/connect the connector and complete the PortaMCP OAuth authorization page.
-6. Enable the connector in a conversation and start with a harmless call such as `system_info`.
+5. Choose **OAuth** as the authentication method. PortaMCP exposes the OAuth discovery/registration metadata required by the client; no static OAuth client secret needs to be committed to the repository.
+6. Continue the connection. When PortaMCP opens its **Authorize PortaMCP** page, enter the locally generated owner password and choose **Allow** only if you trust this client connection.
+7. After the plugin is connected, start with a harmless read-only tool such as `system_info` or `server_capabilities`.
+
+<p align="center">
+  <img src="assets/screenshots/chatgpt-add-plugin.jpg" alt="ChatGPT Plugins page with the add-plugin control" width="760">
+</p>
+
+#### ChatGPT plugin permissions
+
+Open **Settings > Plugins > PortaMCP** to choose how often ChatGPT asks before using tools. Depending on the current ChatGPT UI, the choices can include **Always ask**, **Allow read actions**, **Allow low-risk actions**, and **Allow all actions**.
+
+Selecting **Allow all actions** lets ChatGPT invoke permitted PortaMCP tools without asking before each read/action. This is convenient for hands-off automation, but ChatGPT labels it **elevated risk**. It does **not** bypass PortaMCP's own controls: the active PortaMCP security profile, filesystem scopes, denied paths, emergency deny switch, and disabled capabilities still apply.
+
+Use **Allow all actions** only when you deliberately want that ChatGPT connection to exercise the full PortaMCP capabilities you enabled. For a safer default, keep client-side approvals enabled and begin with PortaMCP **Read Only** or narrowly scoped **Custom** permissions.
+
+<p align="center">
+  <img src="assets/screenshots/chatgpt-permissions.jpg" alt="ChatGPT PortaMCP plugin permission settings" width="760">
+</p>
+
+> [!NOTE]
+> ChatGPT plugin/developer features can vary by plan, workspace, region, and product version. If the exact menu labels differ, look for the current **Plugins** and **Developer mode** settings in ChatGPT.
+
+### Claude
+
+PortaMCP has been tested with Claude's remote custom connectors over OAuth.
+
+1. Start PortaMCP with **OAuth**, configure the public HTTPS base URL, and start the server.
+2. In Claude open **Customize > Connectors** and choose **Add** / **Add custom connector**.
+3. Give the connector a name such as `portamcp` and enter:
+
+```text
+https://YOUR-PUBLIC-HOST/mcp
+```
+
+4. When Claude detects PortaMCP's OAuth support, choose the option to **connect now**. PortaMCP supports OAuth dynamic client registration, so Claude can use **automatic client registration (DCR)** when offered.
+5. Add the connector, choose **Connect**, and complete the PortaMCP authorization page by entering the local owner password and choosing **Allow**.
+6. Test the connection with a read-only call such as `system_info` before enabling broader computer-control capabilities.
+
+<p align="center">
+  <img src="assets/screenshots/claude-add-connector.jpg" alt="Claude custom PortaMCP connector dialog" width="760">
+</p>
+
+#### Claude tool permissions
+
+After the connector is connected, open its **Tool permissions** / **Autorisations des outils** page. Claude can require approval, block tools, use custom per-tool rules, or **Always authorize** the connector's tools.
+
+Choosing **Always authorize** allows Claude to use the tools exposed by PortaMCP without requesting approval each time. Treat this as a high-trust setting: Claude may then invoke any tool that is both exposed by the server and allowed by PortaMCP's local policy. PortaMCP's security profile, scopes, deny rules, capability switches, and Emergency Deny remain the final local boundary.
+
+For unattended automation, enable **Always authorize** only after you have reviewed the active PortaMCP profile and scopes. For interactive use, requiring approval gives you an additional client-side confirmation layer.
+
+<p align="center">
+  <img src="assets/screenshots/claude-permissions.jpg" alt="Claude PortaMCP tool permission settings" width="760">
+</p>
 
 Claude remote connectors are brokered from Anthropic's cloud, so the endpoint must be reachable from the public Internet rather than only from your LAN/VPN. See Anthropic's current guide: [Get started with custom connectors using remote MCP](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
 
