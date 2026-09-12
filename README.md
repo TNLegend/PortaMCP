@@ -44,14 +44,14 @@ The Control Center is the normal way to use the project. It handles first-run in
 
 ## Requirements
 
-For the normal **release-bundle** path, PortaMCP bootstraps its own runtime on first launch. You do not need to prepare a virtual environment or install Python packages manually.
+For the normal **repository distribution**, PortaMCP bootstraps its own runtime on first launch. You do not need to prepare a virtual environment or install Python packages manually. The tracked repository contains the platform launchers and the Windows bootstrap runtime required for a complete first run.
 
 - Windows 10/11, or a modern Linux desktop
 - Internet access during the first launch so PortaMCP can obtain its runtime dependencies and managed Chromium
 - A compatible MCP client
 - On Linux, a normal graphical desktop session with PolicyKit authorization available when system packages are missing
 
-On Windows, the release bundle carries its own private portable CPython bootstrap archive, so an end user does not need Python installed at all. `PortaMCP.exe` verifies that bundled archive against its release checksum, extracts it only under PortaMCP's private runtime directory, and uses it to create the application virtual environment. It does not depend on `PATH`, the Python Launcher, or a machine-wide Python installation, and it does not register the bootstrap runtime system-wide or create Python file associations. On supported Linux package managers, the native launcher can request graphical administrator authorization to install Python/venv/Tk, PyGObject/AT-SPI, Git, and the small first-run GUI helper when they are missing.
+On Windows, the repository distribution carries its own private portable CPython bootstrap archive, so an end user does not need Python installed at all. `PortaMCP.exe` verifies that tracked archive against its recorded checksum, extracts it only under PortaMCP's private runtime directory, and uses it to create the application virtual environment. It does not depend on `PATH`, the Python Launcher, or a machine-wide Python installation, and it does not register the bootstrap runtime system-wide or create Python file associations. On supported Linux package managers, the native launcher can request graphical administrator authorization to install Python/venv/Tk, PyGObject/AT-SPI, Git, and the small first-run GUI helper when they are missing.
 
 ### Platform status
 
@@ -90,7 +90,7 @@ cd PortaMCP
 
 Git is needed only for the `git clone` acquisition step and for PortaMCP's optional Git tools. If Git is not installed yet, use GitHub's **Download ZIP** instead; PortaMCP does not require a system Git installation just to bootstrap and run on Windows. On Linux, the native launcher can install Git together with the other supported OS prerequisites after the project files are already present.
 
-End users do not need to run a setup script or create a virtual environment themselves. Optional release archives may still be provided for convenience, but they are not required.
+End users do not need to run a setup script or create a virtual environment themselves. PortaMCP is distributed directly from this repository: use `git clone` or GitHub's **Code > Download ZIP**. No separate GitHub Release is required.
 
 ### 2. Launch PortaMCP
 
@@ -98,7 +98,7 @@ End users do not need to run a setup script or create a virtual environment them
 
 Double-click **`PortaMCP.exe`**. That is the only launcher an end user needs.
 
-The Windows release already contains a portable CPython bootstrap archive. `PortaMCP.exe` verifies that archive, extracts it under `.portamcp/bootstrap-python`, creates `.venv`, installs all Python dependencies and managed Chromium, validates the finished environment, and opens the Control Center automatically. It does not rely on a preinstalled Python or the machine `PATH`, so no separate Python installer or system-wide Python setup is required.
+The repository already contains a portable CPython bootstrap archive. `PortaMCP.exe` verifies that archive, extracts it under `.portamcp/bootstrap-python`, creates `.venv`, installs all Python dependencies and managed Chromium, validates the finished environment, and opens the Control Center automatically. It does not rely on a preinstalled Python or the machine `PATH`, so no separate Python installer or system-wide Python setup is required.
 
 > [!NOTE]
 > `PortaMCP.exe` is currently unsigned, so Windows may show a reputation warning for a downloaded or locally built executable. The launcher source and rebuild script are included in `launcher/`.
@@ -191,19 +191,172 @@ PortaMCP provides three server profiles:
 
 The endpoint shown by the UI is derived from the selected profile and current configuration.
 
-### Public HTTPS / tunnel endpoint
+### Make PortaMCP reachable from the Internet
 
-PortaMCP does not silently expose the machine to the Internet. Remote access is something you configure deliberately.
+PortaMCP does **not** expose your computer to the Internet automatically. `Local / No Auth` is deliberately forced to loopback. Cloud MCP clients need a public HTTPS route to the local PortaMCP listener, normally `127.0.0.1:8765`.
 
-For OAuth, enter only the public HTTPS base URL, without `/mcp`, query parameters, or fragments. PortaMCP validates the URL and adds the public hostname to the transport's allowed-host set while retaining loopback hosts.
+The general pattern is:
 
-The Control Center can detect a Tailscale DNS name when the Tailscale CLI is available. You can also use a manually managed HTTPS tunnel or reverse proxy.
+```text
+MCP client in the cloud
+        |
+        | HTTPS
+        v
+https://your-public-host.example
+        |
+        | tunnel / reverse proxy
+        v
+http://127.0.0.1:8765
+        |
+        v
+PortaMCP
+```
 
-**Tailscale itself is an external prerequisite for the Tailscale Funnel path.** PortaMCP does not install Tailscale, create a Tailscale account, or sign the machine into a tailnet. Install Tailscale and sign in once using Tailscale's normal setup flow. The tailnet must also permit Funnel; if Tailscale requires one-time Funnel enablement, follow the prompt it provides. Once the Tailscale CLI is installed and connected, PortaMCP can detect the machine's Tailscale DNS URL and recover/reopen the Funnel for the configured PortaMCP port. On Linux, if `tailscaled` requires local operator permission, the Control Center can request the one-time `tailscale set --operator=<user>` change through PolicyKit.
+For **OAuth**, enter only the public HTTPS base URL in **Connection & Auth**, for example `https://my-pc.example.ts.net`. Do **not** append `/mcp`, query parameters, or fragments. Clients connect to the MCP endpoint at:
 
-Tailscale is **not** required for Local / No Auth mode, and OAuth can also use another HTTPS tunnel or reverse proxy that you manage. Tunnel provisioning, account access, tailnet policy, certificates outside Tailscale, and firewall policy remain under your control.
+```text
+https://my-pc.example.ts.net/mcp
+```
 
-For remote use, prefer an authenticated profile and restrict who can reach the public endpoint.
+A suitable public route should:
+
+- provide a valid public HTTPS certificate;
+- forward traffic to `http://127.0.0.1:8765` without rewriting `/mcp` or the OAuth discovery paths;
+- preserve the `Authorization` header;
+- use a stable hostname for OAuth whenever possible;
+- allow normal long-lived/streaming HTTP connections used by MCP;
+- leave PortaMCP itself bound to loopback unless you have a specific reason to change that design.
+
+> [!IMPORTANT]
+> A public tunnel is transport, **not authentication**. For Internet-facing use choose **OAuth** or **Bearer Token**, keep the smallest practical security profile/scopes, and never expose `Local / No Auth` through a tunnel.
+
+#### Example: Tailscale Funnel
+
+[Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel) is one convenient option because it gives the machine a public `https://...ts.net` URL and forwards it to the local PortaMCP port. Tailscale is **optional**; it is not a PortaMCP dependency.
+
+**Windows**
+
+1. Install Tailscale using the official [Windows installer](https://tailscale.com/docs/install/windows).
+2. Open Tailscale from the system tray and sign in to your tailnet.
+3. Start PortaMCP and select **OAuth** (recommended for compatible cloud clients) or **Bearer Token**.
+4. If you want to create the Funnel manually, open PowerShell and run:
+
+```powershell
+tailscale funnel --bg 8765
+tailscale funnel status
+```
+
+**Linux**
+
+Install and authenticate Tailscale:
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+Then expose PortaMCP:
+
+```bash
+sudo tailscale funnel --bg 8765
+tailscale funnel status
+```
+
+The first Funnel command can open a Tailscale consent page if HTTPS/Funnel still needs to be enabled for the tailnet. A successful status looks conceptually like:
+
+```text
+https://your-machine.your-tailnet.ts.net (Funnel on)
+|-- / proxy http://127.0.0.1:8765
+```
+
+Copy the **base URL only** (`https://your-machine.your-tailnet.ts.net`) into PortaMCP's **Public HTTPS base URL**, restart the PortaMCP server, and verify:
+
+```bash
+curl https://your-machine.your-tailnet.ts.net/healthz
+curl -i https://your-machine.your-tailnet.ts.net/mcp
+```
+
+`/healthz` should return a healthy PortaMCP response. An unauthenticated `/mcp` request should be rejected when OAuth/Bearer authentication is active.
+
+When the Tailscale CLI is already installed and connected, the Control Center can detect the machine's Tailscale DNS name and recover/reopen Funnel for the configured PortaMCP port. On Linux, it can also request the one-time `tailscale set --operator=<user>` permission through PolicyKit when required. PortaMCP does **not** install Tailscale, create an account, or sign you into a tailnet.
+
+#### Other public HTTPS options
+
+You are **not locked to Tailscale**. Any solution that gives you a stable public HTTPS URL and correctly proxies to `127.0.0.1:8765` can work, for example:
+
+| Option | Typical use | Notes |
+| --- | --- | --- |
+| **Cloudflare Tunnel** | Stable public hostname without opening an inbound router port | Point the tunnel origin at `http://127.0.0.1:8765`; use your HTTPS hostname as PortaMCP's public base URL. |
+| **ngrok** | Fast development/testing tunnel | `ngrok http 8765`; free/dynamic URLs can change, so update PortaMCP's public base URL before restarting OAuth. |
+| **Caddy / Nginx / Traefik** | Self-managed server or reverse proxy | Terminate TLS on your own domain and proxy to the local PortaMCP listener. |
+| **Cloud VM / reverse tunnel** | Advanced remote deployment | Keep authentication enabled and ensure the public endpoint forwards the required MCP/OAuth paths unchanged. |
+
+PortaMCP does not require a specific tunnel provider. The important contract is **public HTTPS in front, loopback PortaMCP behind it, and authentication enabled**.
+
+## Connect PortaMCP to MCP clients
+
+Once the public route is working, the URL you normally give a remote MCP client is:
+
+```text
+https://YOUR-PUBLIC-HOST/mcp
+```
+
+The exact menu names depend on the client and account plan. Client products change independently of PortaMCP, so also check their current official documentation.
+
+### Claude
+
+PortaMCP has also been tested with Claude's remote custom connectors.
+
+1. In PortaMCP choose **OAuth**, configure the public HTTPS base URL, and start the server.
+2. In Claude open **Customize > Connectors**.
+3. Choose **Add custom connector** (wording can vary by plan).
+4. Enter:
+
+```text
+https://YOUR-PUBLIC-HOST/mcp
+```
+
+5. Add/connect the connector and complete the PortaMCP OAuth authorization page.
+6. Enable the connector in a conversation and start with a harmless call such as `system_info`.
+
+Claude remote connectors are brokered from Anthropic's cloud, so the endpoint must be reachable from the public Internet rather than only from your LAN/VPN. See Anthropic's current guide: [Get started with custom connectors using remote MCP](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+
+### GitHub Copilot
+
+GitHub Copilot can consume custom MCP servers in supported Copilot experiences. For **Copilot cloud agent / code review**, GitHub currently supports remote HTTP/SSE MCP servers but **does not currently support remote MCP servers that use OAuth**. Use PortaMCP's **Bearer Token** profile for that specific integration and store the token as a GitHub Agents secret rather than committing it.
+
+A repository-level example is:
+
+```json
+{
+  "mcpServers": {
+    "portamcp": {
+      "type": "http",
+      "url": "https://YOUR-PUBLIC-HOST/mcp",
+      "tools": ["system_info", "server_capabilities"],
+      "headers": {
+        "Authorization": "Bearer $COPILOT_MCP_PORTAMCP_TOKEN"
+      }
+    }
+  }
+}
+```
+
+Then add an Agents secret named `COPILOT_MCP_PORTAMCP_TOKEN` containing the PortaMCP bearer token. Start with an explicit read-only tool allowlist; GitHub warns that Copilot cloud agent can use configured MCP tools autonomously.
+
+Current GitHub documentation: [Configure MCP servers for your repository](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/configure-mcp-servers).
+
+### Connection checklist
+
+Before debugging the AI client, verify the server path first:
+
+1. PortaMCP shows **ONLINE**.
+2. The selected profile is OAuth/Bearer for remote use.
+3. `https://YOUR-PUBLIC-HOST/healthz` is reachable from the Internet.
+4. `https://YOUR-PUBLIC-HOST/mcp` reaches PortaMCP and rejects anonymous access when authentication is enabled.
+5. The public base URL configured in PortaMCP exactly matches the hostname the client uses.
+6. The client completes OAuth or sends the correct bearer token.
+7. Test a read-only tool before enabling write, shell, process, input, UI, or browser capabilities.
 
 ## Start, stop, and emergency deny
 
@@ -363,16 +516,6 @@ powershell -ExecutionPolicy Bypass -File .\launcher\prepare-git-modes.ps1
 
 This does **not** initialize Git. It records/verifies mode `100755` for `PortaMCP`, `portamcp.sh`, and `launcher/build-launcher-linux.sh`. Use `-CheckOnly` to verify an existing index without changing it.
 
-### Build an optional public ZIP from Windows
-
-The repository itself remains the primary distribution. If you also want a portable ZIP built from the canonical Windows tree, use the included sanitizer/packager:
-
-```powershell
-.\.venv\Scripts\python.exe .\launcher\build-public-archive.py .\dist\PortaMCP-public.zip
-```
-
-The builder uses an explicit public allowlist, omits local config/state/caches/secrets, and stores Unix mode `100755` for the Linux launchers in ZIP metadata.
-
 ### Rebuild the Windows launcher
 
 The launcher source is intentionally small and auditable. On a Windows machine with the required compiler available:
@@ -398,7 +541,7 @@ The resulting executable should remain beside `portamcp.pyw` and the project fol
 
 ### Windows first run reports that the private Python runtime is unavailable
 
-Do **not** install Python system-wide for the normal Windows release flow. Make sure you extracted the complete PortaMCP release bundle and that `runtime/python-bootstrap.zip` and `runtime/python-bootstrap.sha256` are present next to the launcher tree. Launch `PortaMCP.exe` again; it verifies and repairs its private runtime automatically.
+Do **not** install Python system-wide for the normal Windows repository flow. Make sure you cloned the complete repository or extracted GitHub's complete **Download ZIP**, and that `runtime/python-bootstrap.zip` and `runtime/python-bootstrap.sha256` are present next to the launcher tree. Launch `PortaMCP.exe` again; it verifies and repairs its private runtime automatically.
 
 ### Linux cannot create `.venv-linux`
 
