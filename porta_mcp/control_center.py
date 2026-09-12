@@ -7,10 +7,11 @@ import time
 import webbrowser
 from collections import deque
 from tkinter import filedialog, messagebox
+from tkinter import font as tkfont
 from typing import Any
 
 import customtkinter as ctk
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from . import control_center_backend as backend
 
@@ -19,21 +20,37 @@ APP_SUBTITLE = "Universal MCP Control Center"
 APP_VERSION = "0.6.0"
 SUPPORT_URL = "https://buymeacoffee.com/tnlegend"
 
-BG = "#07111F"
-SIDEBAR = "#081523"
-CARD = "#0D1A2A"
-CARD_ALT = "#0A1624"
-BORDER = "#1D3550"
-TEXT = "#F5F9FF"
-MUTED = "#8FA5BE"
-ACCENT = "#22D3EE"
-ACCENT_HOVER = "#18BFD8"
-BLUE = "#3B82F6"
-BLUE_HOVER = "#2E6EDB"
+BG = "#081321"
+SIDEBAR = "#060F1C"
+CARD = "#0D1C30"
+CARD_ALT = "#0A1728"
+BORDER = "#213A57"
+TEXT = "#F1F6FD"
+MUTED = "#9AADC4"
+ACCENT = "#38BDF8"
+ACCENT_HOVER = "#67D1FA"
+BLUE = "#2563EB"
+BLUE_HOVER = "#2D6BDF"
 DANGER = "#F05261"
 DANGER_HOVER = "#D83F50"
 WARN = "#F5B942"
 GOOD = "#34D399"
+CONTROL = "#132B46"
+CONTROL_HOVER = "#1B3D60"
+CONTROL_BORDER = "#305475"
+DISABLED_TEXT = "#7E96B3"
+SUPPORT = "#7DD3FC"
+SUPPORT_HOVER = "#A6E3FF"
+SUPPORT_TEXT = "#08243D"
+BUTTON_RADIUS = 8
+BUTTON_STYLES = {
+    "primary": (BLUE, BLUE_HOVER, "#FFFFFF", BLUE),
+    "blue": (BLUE, BLUE_HOVER, "#FFFFFF", BLUE),
+    "secondary": (CONTROL, CONTROL_HOVER, TEXT, CONTROL_BORDER),
+    "ghost": (CARD_ALT, CONTROL, "#C7D8EB", BORDER),
+    "danger": ("#301C2B", "#452437", "#FFA9B2", "#7F354E"),
+    "support": (SUPPORT, SUPPORT_HOVER, SUPPORT_TEXT, SUPPORT),
+}
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -42,6 +59,26 @@ ctk.set_default_color_theme("blue")
 class PortaMCPApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__(fg_color=BG)
+        # Resolve installed families through Tk, on both Windows and Linux.
+        families = set(tkfont.families(self))
+        self.ui_font = next(
+            (name for name in ("Segoe UI", "Inter", "Ubuntu", "DejaVu Sans") if name in families),
+            tkfont.nametofont("TkDefaultFont").actual("family"),
+        )
+        self.mono_font = next(
+            (name for name in ("Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Liberation Mono") if name in families),
+            tkfont.nametofont("TkFixedFont").actual("family"),
+        )
+        # Draw the same crisp cup on both platforms, independent of emoji fonts.
+        cup = Image.new("RGBA", (64, 64))
+        draw = ImageDraw.Draw(cup)
+        draw.rounded_rectangle((12, 22, 44, 49), radius=6, outline=SUPPORT_TEXT, width=4)
+        draw.arc((36, 25, 56, 43), -90, 90, fill=SUPPORT_TEXT, width=4)
+        draw.line((10, 55, 48, 55), fill=SUPPORT_TEXT, width=4)
+        for x in (21, 34):
+            draw.line((x, 8, x, 16), fill=SUPPORT_TEXT, width=3)
+        self._support_icon = ctk.CTkImage(cup, size=(20, 20))
+        self._support_large_icon = ctk.CTkImage(cup, size=(42, 42))
         backend.ensure_runtime_layout()
 
         self.title(f"{APP_NAME} Control Center")
@@ -117,14 +154,15 @@ class PortaMCPApp(ctk.CTk):
     def _build_sidebar(self) -> None:
         self.sidebar = ctk.CTkFrame(
             self,
-            width=250,
+            width=224,
             fg_color=SIDEBAR,
             corner_radius=0,
             border_width=0,
         )
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
-        self.sidebar.grid_rowconfigure(8, weight=1)
+        self.sidebar.grid_columnconfigure(0, weight=1)
+        self.sidebar.grid_rowconfigure(6, weight=1)
 
         brand = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         brand.grid(row=0, column=0, sticky="ew", padx=20, pady=(24, 24))
@@ -137,11 +175,11 @@ class PortaMCPApp(ctk.CTk):
                 brand,
                 text="P",
                 width=38,
-                height=38,
+                height=40,
                 corner_radius=10,
                 fg_color=ACCENT,
-                text_color="#06110F",
-                font=ctk.CTkFont("Segoe UI", 20, "bold"),
+                text_color="#061423",
+                font=ctk.CTkFont(self.ui_font, 20, "bold"),
             )
             mark.grid(row=0, column=0, rowspan=2, padx=(0, 12))
 
@@ -149,36 +187,36 @@ class PortaMCPApp(ctk.CTk):
             brand,
             text=APP_NAME,
             text_color=TEXT,
-            font=ctk.CTkFont("Segoe UI", 21, "bold"),
+            font=ctk.CTkFont(self.ui_font, 21, "bold"),
             anchor="w",
         ).grid(row=0, column=1, sticky="w")
         ctk.CTkLabel(
             brand,
-            text="CONTROL CENTER",
+            text="Control center",
             text_color=MUTED,
-            font=ctk.CTkFont("Segoe UI", 9, "bold"),
+            font=ctk.CTkFont(self.ui_font, 11, "bold"),
             anchor="w",
         ).grid(row=1, column=1, sticky="w", pady=(1, 0))
 
         self.nav_buttons: dict[str, ctk.CTkButton] = {}
         nav = [
-            ("dashboard", "OV", "Overview"),
-            ("connection", "CN", "Connection & Auth"),
-            ("security", "SC", "Security Profiles"),
-            ("activity", "LG", "Activity & Logs"),
-            ("setup", "ST", "Setup & Integrations"),
+            ("dashboard", "Overview"),
+            ("connection", "Connection & Auth"),
+            ("security", "Security Profiles"),
+            ("activity", "Activity & Logs"),
+            ("setup", "Setup & Integrations"),
         ]
-        for idx, (key, code, label) in enumerate(nav, start=1):
+        for idx, (key, label) in enumerate(nav, start=1):
             btn = ctk.CTkButton(
                 self.sidebar,
-                text=f"{code}    {label}",
+                text=label,
                 height=48,
-                corner_radius=11,
+                corner_radius=BUTTON_RADIUS,
                 fg_color="transparent",
-                hover_color="#10253A",
-                text_color="#9FB2C8",
+                hover_color="#132C48",
+                text_color=MUTED,
                 anchor="w",
-                font=ctk.CTkFont("Segoe UI", 12, "normal"),
+                font=ctk.CTkFont(self.ui_font, 13, "normal"),
                 command=lambda k=key: self.show_page(k),
             )
             btn.grid(row=idx, column=0, sticky="ew", padx=14, pady=4)
@@ -186,30 +224,20 @@ class PortaMCPApp(ctk.CTk):
 
         emergency_wrap = ctk.CTkFrame(
             self.sidebar,
-            fg_color="#0A1624",
+            fg_color=CARD_ALT,
             corner_radius=12,
             border_width=1,
-            border_color="#23344A",
+            border_color=BORDER,
         )
         emergency_wrap.grid(row=7, column=0, sticky="ew", padx=14, pady=(24, 8))
         ctk.CTkLabel(
             emergency_wrap,
-            text="EMERGENCY CONTROL",
-            text_color="#71849A",
-            font=ctk.CTkFont("Segoe UI", 9, "bold"),
+            text="Safety control",
+            text_color=MUTED,
+            font=ctk.CTkFont(self.ui_font, 11, "bold"),
         ).pack(anchor="w", padx=13, pady=(10, 3))
-        self.sidebar_emergency_btn = ctk.CTkButton(
-            emergency_wrap,
-            text="Emergency Deny",
-            height=42,
-            corner_radius=10,
-            fg_color="transparent",
-            hover_color="#28131B",
-            border_width=1,
-            border_color="#7B2A37",
-            text_color="#FF7D89",
-            font=ctk.CTkFont("Segoe UI", 11, "bold"),
-            command=self.toggle_emergency,
+        self.sidebar_emergency_btn = self._button(
+            emergency_wrap, "Emergency Deny", self.toggle_emergency, "danger", 170,
         )
         self.sidebar_emergency_btn.pack(fill="x", padx=9, pady=(3, 9))
 
@@ -218,15 +246,15 @@ class PortaMCPApp(ctk.CTk):
         ctk.CTkLabel(
             footer,
             text="Developed by TNLegend",
-            text_color="#708096",
-            font=ctk.CTkFont("Segoe UI", 10),
+            text_color=MUTED,
+            font=ctk.CTkFont(self.ui_font, 12),
             anchor="w",
         ).pack(anchor="w")
         ctk.CTkLabel(
             footer,
             text=f"v{APP_VERSION}  |  Client-neutral MCP",
-            text_color="#55657A",
-            font=ctk.CTkFont("Segoe UI", 9),
+            text_color="#728BA8",
+            font=ctk.CTkFont(self.ui_font, 11),
             anchor="w",
         ).pack(anchor="w", pady=(3, 0))
 
@@ -236,67 +264,61 @@ class PortaMCPApp(ctk.CTk):
         top.grid_columnconfigure(0, weight=1)
 
         left = ctk.CTkFrame(top, fg_color="transparent")
-        left.grid(row=0, column=0, sticky="w")
+        left.grid(row=0, column=0, sticky="ew")
         self.page_title = ctk.CTkLabel(
             left,
             text="Overview",
             text_color=TEXT,
-            font=ctk.CTkFont("Segoe UI", 27, "bold"),
+            font=ctk.CTkFont(self.ui_font, 27, "bold"),
         )
         self.page_title.pack(anchor="w")
         self.page_subtitle = ctk.CTkLabel(
-            left,
+            top,
             text="Manage your MCP runtime from one place.",
             text_color=MUTED,
-            font=ctk.CTkFont("Segoe UI", 11),
+            font=ctk.CTkFont(self.ui_font, 13),
         )
-        self.page_subtitle.pack(anchor="w", pady=(3, 0))
+        self.page_subtitle.configure(wraplength=500, justify="left")
+        self.page_subtitle.configure(anchor="w")
+        self.page_subtitle.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 10))
+        self._wrap_to_width(self.page_subtitle)
 
         right = ctk.CTkFrame(top, fg_color="transparent")
         right.grid(row=0, column=1, sticky="e")
-        self.support_button = ctk.CTkButton(
-            right,
-            text="\u2615  Support PortaMCP",
-            width=152,
-            height=32,
-            corner_radius=11,
-            fg_color="#3A2410",
-            hover_color="#5A3515",
-            border_width=1,
-            border_color="#B8792A",
-            text_color="#FFD79A",
-            font=ctk.CTkFont("Segoe UI", 10, "bold"),
-            command=self._open_support_page,
+        self.support_button = self._button(
+            right, "Support PortaMCP", self._open_support_page, "support", 186,
         )
+        self.support_button.configure(image=self._support_icon, height=40)
         self.support_button.pack(side="left", padx=(0, 10))
         self.version_pill = ctk.CTkLabel(
             right,
             text=f"  v{APP_VERSION}  ",
             height=28,
-            corner_radius=14,
-            fg_color="#121D2A",
-            text_color="#8FA7C2",
-            font=ctk.CTkFont("Cascadia Mono", 9, "bold"),
+            corner_radius=10,
+            fg_color=CARD_ALT,
+            text_color=MUTED,
+            font=ctk.CTkFont(self.mono_font, 11, "bold"),
         )
-        self.version_pill.pack(side="left", padx=(0, 10))
+        # Version is shown in the sidebar footer.
         self.dirty_badge = ctk.CTkLabel(
-            right,
+            top,
             text="",
             width=0,
             text_color=WARN,
-            font=ctk.CTkFont("Segoe UI", 10, "bold"),
+            font=ctk.CTkFont(self.ui_font, 12, "bold"),
         )
-        self.dirty_badge.pack(side="left", padx=(0, 12))
+        self.dirty_badge.grid(row=2, column=0, columnspan=2, sticky="w")
+        self.dirty_badge.grid_remove()
         self.status_pill = ctk.CTkLabel(
             right,
             text="  CHECKING SYSTEM  ",
             height=32,
-            corner_radius=11,
-            fg_color="#091B26",
-            text_color="#8EA7BD",
+            corner_radius=BUTTON_RADIUS,
+            fg_color=CARD_ALT,
+            text_color=MUTED,
             border_width=1,
-            border_color="#203C50",
-            font=ctk.CTkFont("Segoe UI", 9, "bold"),
+            border_color=BORDER,
+            font=ctk.CTkFont(self.ui_font, 11, "bold"),
         )
         self.status_pill.pack(side="left")
 
@@ -312,23 +334,11 @@ class PortaMCPApp(ctk.CTk):
         button = getattr(self, "support_button", None)
         if button is None or not button.winfo_exists():
             return
-        button.configure(
-            text="\u2764\ufe0f  Thank you!",
-            fg_color="#431A2A",
-            hover_color="#572138",
-            border_color="#EC4899",
-            text_color="#FFD6E7",
-        )
+        button.configure(text="Support page opened")
 
         def restore() -> None:
             if button.winfo_exists():
-                button.configure(
-                    text="\u2615  Support PortaMCP",
-                    fg_color="#3A2410",
-                    hover_color="#5A3515",
-                    border_color="#B8792A",
-                    text_color="#FFD79A",
-                )
+                button.configure(text="Support PortaMCP")
 
         self.after(1300, restore)
 
@@ -343,7 +353,7 @@ class PortaMCPApp(ctk.CTk):
         popup = ctk.CTkToplevel(self, fg_color=BG)
         self._support_popup = popup
         popup.title("Support PortaMCP")
-        popup.geometry("570x410")
+        popup.geometry("590x490")
         popup.resizable(False, False)
         popup.transient(self)
         popup.protocol("WM_DELETE_WINDOW", self._close_support_popup)
@@ -355,22 +365,20 @@ class PortaMCPApp(ctk.CTk):
             fg_color=CARD,
             corner_radius=18,
             border_width=1,
-            border_color="#6E4A20",
+            border_color=BORDER,
         )
         card.grid(row=0, column=0, sticky="nsew", padx=18, pady=18)
         card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            card,
-            text="\u2615",
-            text_color="#FFD79A",
-            font=ctk.CTkFont("Segoe UI Emoji", 42),
-        ).grid(row=0, column=0, pady=(28, 5))
+            card, text="", image=self._support_large_icon,
+            width=72, height=72, corner_radius=16, fg_color=SUPPORT,
+        ).grid(row=0, column=0, pady=(28, 18))
         ctk.CTkLabel(
             card,
             text="Help PortaMCP keep growing",
             text_color=TEXT,
-            font=ctk.CTkFont("Segoe UI", 23, "bold"),
+            font=ctk.CTkFont(self.ui_font, 23, "bold"),
         ).grid(row=1, column=0, padx=24, pady=(0, 8))
         ctk.CTkLabel(
             card,
@@ -379,8 +387,8 @@ class PortaMCPApp(ctk.CTk):
                 "Donations help fund new tools, cross-platform testing, maintenance, "
                 "and future improvements."
             ),
-            text_color="#B8C9DB",
-            font=ctk.CTkFont("Segoe UI", 11),
+            text_color="#B9CCE2",
+            font=ctk.CTkFont(self.ui_font, 13),
             justify="center",
             wraplength=470,
         ).grid(row=2, column=0, padx=30, pady=(0, 10))
@@ -388,46 +396,27 @@ class PortaMCPApp(ctk.CTk):
             card,
             text="Support is optional - closing this window does not limit PortaMCP.",
             text_color=MUTED,
-            font=ctk.CTkFont("Segoe UI", 9),
+            font=ctk.CTkFont(self.ui_font, 11),
         ).grid(row=3, column=0, padx=24, pady=(0, 18))
 
         self._support_feedback = ctk.CTkLabel(
             card,
             text="",
             height=28,
-            text_color="#FFD6E7",
-            font=ctk.CTkFont("Segoe UI Emoji", 11, "bold"),
+            text_color=MUTED,
+            font=ctk.CTkFont(self.ui_font, 12),
         )
         self._support_feedback.grid(row=4, column=0, padx=20, pady=(0, 2))
 
         actions = ctk.CTkFrame(card, fg_color="transparent")
         actions.grid(row=5, column=0, pady=(4, 28))
-        self._support_donate_button = ctk.CTkButton(
-            actions,
-            text="\u2615  Buy me a coffee",
-            width=188,
-            height=43,
-            corner_radius=12,
-            fg_color="#B86A16",
-            hover_color="#D47A19",
-            text_color="#FFF7E8",
-            font=ctk.CTkFont("Segoe UI", 11, "bold"),
-            command=self._donate_from_popup,
+        self._support_donate_button = self._button(
+            actions, "Buy me a coffee", self._donate_from_popup, "support", 204,
         )
-        self._support_donate_button.pack(side="left", padx=(0, 10))
-        self._support_close_button = ctk.CTkButton(
-            actions,
-            text="Maybe later",
-            width=132,
-            height=43,
-            corner_radius=12,
-            fg_color="#142337",
-            hover_color="#1D314A",
-            border_width=1,
-            border_color=BORDER,
-            text_color="#B6C7D9",
-            font=ctk.CTkFont("Segoe UI", 10, "bold"),
-            command=self._close_support_popup,
+        self._support_donate_button.configure(image=self._support_icon)
+        self._support_donate_button.pack(side="left", padx=(0, 12))
+        self._support_close_button = self._button(
+            actions, "Maybe later", self._close_support_popup, "ghost", 132,
         )
         self._support_close_button.pack(side="left")
 
@@ -450,21 +439,15 @@ class PortaMCPApp(ctk.CTk):
             return
         feedback = getattr(self, "_support_feedback", None)
         if feedback is not None and feedback.winfo_exists():
-            feedback.configure(text="\u2764\ufe0f  Thank you for supporting PortaMCP!")
+            feedback.configure(text="Support page opened in your browser.")
         button = getattr(self, "_support_donate_button", None)
         if button is not None and button.winfo_exists():
-            button.configure(text="\u2764\ufe0f  Thank you!", state="disabled", fg_color="#7A2948")
+            button.configure(text="Page opened", state="disabled")
         self._animate_support_button()
         self.after(850, self._destroy_support_popup)
 
     def _close_support_popup(self) -> None:
-        feedback = getattr(self, "_support_feedback", None)
-        if feedback is not None and feedback.winfo_exists():
-            feedback.configure(text="\U0001F622  Maybe next time - thanks for using PortaMCP!")
-        close_button = getattr(self, "_support_close_button", None)
-        if close_button is not None and close_button.winfo_exists():
-            close_button.configure(state="disabled")
-        self.after(550, self._destroy_support_popup)
+        self._destroy_support_popup()
 
     def _destroy_support_popup(self) -> None:
         popup = self._support_popup
@@ -502,17 +485,17 @@ class PortaMCPApp(ctk.CTk):
         for key, button in self.nav_buttons.items():
             if key == page:
                 button.configure(
-                    fg_color="#0D263A",
-                    text_color="#E9FBFF",
-                    font=ctk.CTkFont("Segoe UI", 12, "bold"),
+                    fg_color="#132C48",
+                    text_color=TEXT,
+                    font=ctk.CTkFont(self.ui_font, 13, "bold"),
                     border_width=1,
-                    border_color="#1B5F77",
+                    border_color="#285B8C",
                 )
             else:
                 button.configure(
                     fg_color="transparent",
-                    text_color="#9FB2C8",
-                    font=ctk.CTkFont("Segoe UI", 12, "normal"),
+                    text_color=MUTED,
+                    font=ctk.CTkFont(self.ui_font, 13, "normal"),
                     border_width=0,
                 )
 
@@ -540,13 +523,26 @@ class PortaMCPApp(ctk.CTk):
             self._schedule_runtime_refresh(0)
 
     # ---------- reusable UI ----------
+    @staticmethod
+    def _wrap_to_width(label: ctk.CTkLabel) -> None:
+        """Wrap copy to its allocated width without changing the grid's size."""
+        def resize(_event) -> None:
+            # CTk binds both its canvas and internal Tk label. Their event
+            # widths differ; use the outer allocation to avoid resize loops.
+            # winfo reports physical pixels; CTk wraplength uses scaled units.
+            width = max(80, label._reverse_widget_scaling(label.winfo_width()) - 8)
+            if abs(float(label.cget("wraplength")) - width) > 2:
+                label.configure(wraplength=width)
+
+        label.bind("<Configure>", resize, add="+")
+
     def _scroll_page(self) -> ctk.CTkScrollableFrame:
         frame = ctk.CTkScrollableFrame(
             self.page_host,
             fg_color="transparent",
             corner_radius=0,
-            scrollbar_button_color="#2B3D52",
-            scrollbar_button_hover_color="#38516D",
+            scrollbar_button_color="#294461",
+            scrollbar_button_hover_color="#3A6086",
         )
         frame.grid(row=0, column=0, sticky="nsew")
         frame.grid_columnconfigure(0, weight=1)
@@ -555,24 +551,27 @@ class PortaMCPApp(ctk.CTk):
         return frame
 
     def _card(self, parent, title: str, subtitle: str = "") -> ctk.CTkFrame:
-        card = ctk.CTkFrame(parent, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
+        card = ctk.CTkFrame(parent, fg_color=CARD, corner_radius=10, border_width=1, border_color=BORDER)
         card.grid_columnconfigure(0, weight=1)
         head = ctk.CTkFrame(card, fg_color="transparent")
-        head.grid(row=0, column=0, sticky="ew", padx=20, pady=(17, 11))
-        ctk.CTkLabel(head, text=title, text_color=TEXT, font=ctk.CTkFont("Segoe UI", 14, "bold")).pack(anchor="w")
+        head.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 14))
+        ctk.CTkLabel(head, text=title, text_color=TEXT, font=ctk.CTkFont(self.ui_font, 16, "bold")).pack(anchor="w")
         if subtitle:
-            ctk.CTkLabel(
+            subtitle_label = ctk.CTkLabel(
                 head,
                 text=subtitle,
                 text_color=MUTED,
                 justify="left",
+                anchor="w",
                 wraplength=650,
-                font=ctk.CTkFont("Segoe UI", 10),
-            ).pack(anchor="w", pady=(3, 0))
+                font=ctk.CTkFont(self.ui_font, 12),
+            )
+            subtitle_label.pack(anchor="w", pady=(5, 0), fill="x")
+            self._wrap_to_width(subtitle_label)
         return card
 
     def _metric_card(self, parent, row: int, col: int, label: str, value: str, accent: str = ACCENT) -> tuple[ctk.CTkFrame, ctk.CTkLabel]:
-        card = ctk.CTkFrame(parent, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
+        card = ctk.CTkFrame(parent, fg_color=CARD, corner_radius=10, border_width=1, border_color=BORDER)
         card.grid(
             row=row,
             column=col,
@@ -583,8 +582,8 @@ class PortaMCPApp(ctk.CTk):
         ctk.CTkFrame(card, width=4, fg_color=accent, corner_radius=2).pack(side="left", fill="y", padx=(0, 12), pady=12)
         body = ctk.CTkFrame(card, fg_color="transparent")
         body.pack(side="left", fill="both", expand=True, pady=16, padx=(0, 14))
-        ctk.CTkLabel(body, text=label.upper(), text_color=MUTED, font=ctk.CTkFont("Segoe UI", 9, "bold")).pack(anchor="w")
-        val = ctk.CTkLabel(body, text=value, text_color=TEXT, font=ctk.CTkFont("Segoe UI", 16, "bold"), anchor="w")
+        ctk.CTkLabel(body, text=label.upper(), text_color=MUTED, font=ctk.CTkFont(self.ui_font, 11, "bold")).pack(anchor="w")
+        val = ctk.CTkLabel(body, text=value, text_color=TEXT, font=ctk.CTkFont(self.ui_font, 16, "bold"), anchor="w")
         val.pack(anchor="w", pady=(5, 0))
         return card, val
 
@@ -599,10 +598,10 @@ class PortaMCPApp(ctk.CTk):
     ) -> tuple[ctk.CTkFrame, ctk.CTkLabel, ctk.CTkFrame, ctk.CTkLabel]:
         card = ctk.CTkFrame(
             parent,
-            fg_color="#0C1B2B",
-            corner_radius=15,
+            fg_color=CARD,
+            corner_radius=10,
             border_width=1,
-            border_color="#24435F",
+            border_color=BORDER,
         )
         card.grid(
             row=0,
@@ -610,35 +609,23 @@ class PortaMCPApp(ctk.CTk):
             sticky="nsew",
             padx=(0 if col == 0 else 6, 0 if col == 3 else 6),
         )
-        card.grid_columnconfigure(1, weight=1)
-
-        badge = ctk.CTkLabel(
-            card,
-            text=code,
-            width=46,
-            height=46,
-            corner_radius=12,
-            fg_color="#0A2A3D",
-            text_color=ACCENT,
-            font=ctk.CTkFont("Cascadia Mono", 10, "bold"),
-        )
-        badge.grid(row=0, column=0, rowspan=2, sticky="nw", padx=(16, 12), pady=(17, 0))
+        card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
             card,
-            text=label.upper(),
-            text_color="#6FA5D7",
-            font=ctk.CTkFont("Segoe UI", 8, "bold"),
+            text=label,
+            text_color=MUTED,
+            font=ctk.CTkFont(self.ui_font, 12),
             anchor="w",
-        ).grid(row=0, column=1, sticky="sw", pady=(18, 0))
+        ).grid(row=0, column=0, sticky="w", padx=18, pady=(16, 0))
 
         value_row = ctk.CTkFrame(card, fg_color="transparent")
-        value_row.grid(row=1, column=1, sticky="nw", pady=(3, 0))
+        value_row.grid(row=1, column=0, sticky="ew", padx=18, pady=(5, 0))
         value_label = ctk.CTkLabel(
             value_row,
             text=value,
             text_color=TEXT,
-            font=ctk.CTkFont("Segoe UI", 15, "bold"),
+            font=ctk.CTkFont(self.ui_font, 20, "bold"),
             anchor="w",
         )
         value_label.pack(side="left")
@@ -650,57 +637,46 @@ class PortaMCPApp(ctk.CTk):
             corner_radius=4,
             fg_color=GOOD,
         )
-        dot.pack(side="left", padx=(8, 0), pady=(7, 0))
+        dot.pack(side="right", padx=(8, 0))
         dot.pack_propagate(False)
-
-        ctk.CTkLabel(
-            card,
-            text=">",
-            text_color="#8BA4BD",
-            font=ctk.CTkFont("Segoe UI", 17),
-        ).grid(row=0, column=2, rowspan=2, sticky="e", padx=(8, 14), pady=(14, 0))
 
         detail_label = ctk.CTkLabel(
             card,
             text=detail,
-            text_color="#8FA5BE",
-            font=ctk.CTkFont("Segoe UI", 9),
+            text_color=MUTED,
+            font=ctk.CTkFont(self.ui_font, 11),
             anchor="w",
         )
         detail_label.grid(
             row=2,
             column=0,
-            columnspan=3,
-            sticky="w",
-            padx=16,
-            pady=(14, 15),
+            sticky="ew",
+            padx=18,
+            pady=(8, 16),
         )
+        self._wrap_to_width(detail_label)
 
         return card, value_label, dot, detail_label
 
 
     def _button(self, parent, text: str, command, kind: str = "primary", width: int = 120) -> ctk.CTkButton:
-        palette = {
-            "primary": ("#0B617A", "#0D7692", "#E9FCFF", ACCENT),
-            "blue": ("#173A6A", "#1C4B87", "#EEF5FF", "#2D67A6"),
-            "danger": ("#24131B", "#361821", "#FF7785", "#7C2C39"),
-            "secondary": ("#0B1826", "#12263A", "#D8E5F3", "#29445F"),
-            "ghost": ("#09131F", "#102033", "#BAC9D8", "#29445F"),
-        }
-        fg, hover, text_color, border = palette[kind]
+        fg, hover, text_color, border = BUTTON_STYLES[kind]
+        font = ctk.CTkFont(self.ui_font, 13, "bold")
+        width = max(width, font.measure(text) + 32)
         return ctk.CTkButton(
             parent,
             text=text,
             command=command,
             width=width,
             height=44,
-            corner_radius=10,
+            corner_radius=BUTTON_RADIUS,
             fg_color=fg,
             hover_color=hover,
             text_color=text_color,
+            text_color_disabled=SUPPORT_TEXT if kind == "support" else DISABLED_TEXT,
             border_width=1,
             border_color=border,
-            font=ctk.CTkFont("Segoe UI", 10, "bold"),
+            font=font,
         )
 
     # ---------- overview ----------
@@ -777,10 +753,10 @@ class PortaMCPApp(ctk.CTk):
 
         runtime = ctk.CTkFrame(
             page,
-            fg_color="#0B1928",
+            fg_color=CARD,
             corner_radius=16,
             border_width=1,
-            border_color="#203B57",
+            border_color=BORDER,
         )
         runtime.grid(row=1, column=0, sticky="ew", pady=(0, 18))
         runtime.grid_columnconfigure(0, weight=1)
@@ -791,47 +767,36 @@ class PortaMCPApp(ctk.CTk):
 
         ctk.CTkLabel(
             runtime_head,
-            text="RT",
-            width=34,
-            height=34,
-            corner_radius=9,
-            fg_color="#0A2A3D",
-            text_color=ACCENT,
-            font=ctk.CTkFont("Cascadia Mono", 9, "bold"),
-        ).grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
-
-        ctk.CTkLabel(
-            runtime_head,
             text="Runtime controls",
             text_color=TEXT,
-            font=ctk.CTkFont("Segoe UI", 15, "bold"),
+            font=ctk.CTkFont(self.ui_font, 15, "bold"),
         ).grid(row=0, column=1, sticky="sw")
         ctk.CTkLabel(
             runtime_head,
             text="Start, restart, recover, or stop PortaMCP cleanly.",
             text_color=MUTED,
-            font=ctk.CTkFont("Segoe UI", 9),
+            font=ctk.CTkFont(self.ui_font, 11),
         ).grid(row=1, column=1, sticky="nw", pady=(2, 0))
 
         profile_wrap = ctk.CTkFrame(
             runtime_head,
-            fg_color="#0A1624",
+            fg_color=CARD_ALT,
             corner_radius=10,
             border_width=1,
-            border_color="#243B53",
+            border_color=BORDER,
         )
         profile_wrap.grid(row=0, column=2, rowspan=2, sticky="e")
         ctk.CTkLabel(
             profile_wrap,
             text="PROFILE",
-            text_color="#71869D",
-            font=ctk.CTkFont("Segoe UI", 8, "bold"),
+            text_color=MUTED,
+            font=ctk.CTkFont(self.ui_font, 11, "bold"),
         ).pack(side="left", padx=(12, 8), pady=8)
         self.runtime_profile_label = ctk.CTkLabel(
             profile_wrap,
             text=backend.PROFILE_LABELS[self.profile],
             text_color=TEXT,
-            font=ctk.CTkFont("Segoe UI", 10, "bold"),
+            font=ctk.CTkFont(self.ui_font, 12, "bold"),
         )
         self.runtime_profile_label.pack(side="left", padx=(0, 12), pady=8)
 
@@ -875,34 +840,35 @@ class PortaMCPApp(ctk.CTk):
         for idx, (label, value) in enumerate(summary_rows):
             item = ctk.CTkFrame(
                 content,
-                fg_color="#0A1624",
+                fg_color=CARD_ALT,
                 corner_radius=10,
                 border_width=1,
-                border_color="#172C42",
+                border_color="#1B304A",
             )
             item.grid(row=idx, column=0, sticky="ew", pady=(0, 8))
-            item.grid_columnconfigure(1, weight=1)
+            item.grid_columnconfigure(0, weight=1)
             ctk.CTkLabel(
                 item,
                 text=label,
                 width=120,
-                text_color="#71869D",
-                font=ctk.CTkFont("Segoe UI", 8, "bold"),
+                text_color=MUTED,
+                font=ctk.CTkFont(self.ui_font, 11, "bold"),
                 anchor="w",
-            ).grid(row=0, column=0, sticky="w", padx=(12, 8), pady=10)
+            ).grid(row=0, column=0, sticky="w", padx=12, pady=(8, 0))
             value_label = ctk.CTkLabel(
                 item,
                 text=str(value),
-                text_color="#D8E5F3",
+                text_color=TEXT,
                 font=ctk.CTkFont(
-                    "Cascadia Mono" if label in {"MCP ENDPOINT", "PUBLIC BASE"} else "Segoe UI",
-                    9,
+                    self.mono_font if label in {"MCP ENDPOINT", "PUBLIC BASE"} else self.ui_font,
+                    12,
                 ),
                 anchor="w",
                 justify="left",
                 wraplength=420,
             )
-            value_label.grid(row=0, column=1, sticky="ew", padx=(0, 10), pady=10)
+            value_label.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 10))
+            self._wrap_to_width(value_label)
             self._summary_value_labels[label] = value_label
             if label == "MCP ENDPOINT":
                 self._button(
@@ -911,7 +877,7 @@ class PortaMCPApp(ctk.CTk):
                     self.copy_endpoint,
                     "ghost",
                     62,
-                ).grid(row=0, column=2, padx=(0, 8), pady=6)
+                ).grid(row=0, column=1, rowspan=2, padx=(0, 8), pady=6)
 
         policy = self._card(
             lower,
@@ -927,14 +893,13 @@ class PortaMCPApp(ctk.CTk):
             policy_top,
             text=f"{enabled_count} / {len(backend.FEATURE_KEYS)} enabled",
             text_color=ACCENT,
-            font=ctk.CTkFont("Cascadia Mono", 9, "bold"),
+            font=ctk.CTkFont(self.mono_font, 11, "bold"),
         )
         self.policy_count_label.grid(row=0, column=0, sticky="w")
 
         grid = ctk.CTkFrame(policy, fg_color="transparent")
         grid.grid(row=2, column=0, sticky="ew", padx=14, pady=(0, 16))
-        for col in range(3):
-            grid.grid_columnconfigure(col, weight=1, uniform="policy")
+        grid.grid_columnconfigure(0, weight=1)
 
         labels = [
             ("File writes", "allow_fs_write"),
@@ -953,40 +918,39 @@ class PortaMCPApp(ctk.CTk):
             enabled = backend.effective_feature_enabled(self.config_data, key)
             item = ctk.CTkFrame(
                 grid,
-                fg_color="#0A1624",
-                corner_radius=9,
-                border_width=1,
-                border_color="#172C42",
+                fg_color="transparent",
+                corner_radius=0,
+                border_width=0,
             )
             item.grid(
-                row=idx // 3,
-                column=idx % 3,
+                row=idx,
+                column=0,
                 sticky="ew",
                 padx=4,
-                pady=4,
+                pady=2,
             )
             dot = ctk.CTkFrame(
                 item,
                 width=7,
                 height=7,
                 corner_radius=4,
-                fg_color=(ACCENT if enabled else ("#41546A" if supported else "#2F3946")),
+                fg_color=(ACCENT if enabled else ("#526C8A" if supported else "#33485F")),
             )
-            dot.pack(side="left", padx=(11, 8), pady=11)
+            dot.pack(side="left", padx=(11, 8), pady=5)
             dot.pack_propagate(False)
             ctk.CTkLabel(
                 item,
                 text=label,
-                text_color=("#C9D6E4" if enabled else ("#74869A" if supported else "#556476")),
-                font=ctk.CTkFont("Segoe UI", 8),
-            ).pack(side="left", pady=10)
+                text_color=TEXT if enabled else MUTED,
+                font=ctk.CTkFont(self.ui_font, 11),
+            ).pack(side="left", pady=2)
             state = ctk.CTkLabel(
                 item,
                 text="ON" if enabled else ("OFF" if supported else "N/A"),
-                text_color=ACCENT if enabled else ("#607287" if supported else "#4C5B6C"),
-                font=ctk.CTkFont("Cascadia Mono", 8, "bold"),
+                text_color=ACCENT if enabled else MUTED,
+                font=ctk.CTkFont(self.mono_font, 11, "bold"),
             )
-            state.pack(side="right", padx=(8, 10), pady=10)
+            state.pack(side="right", padx=(8, 10), pady=2)
             self._policy_widgets[key] = (dot, state)
 
     # ---------- connection ----------
@@ -1001,17 +965,17 @@ class PortaMCPApp(ctk.CTk):
             body,
             values=["Local / No Auth", "Bearer Token", "OAuth"],
             command=self._profile_selected,
-            selected_color=ACCENT,
-            selected_hover_color=ACCENT_HOVER,
-            unselected_color="#182333",
-            unselected_hover_color="#223247",
-            text_color="#EAF2FA",
-            font=ctk.CTkFont("Segoe UI", 11, "bold"),
+            selected_color=BLUE,
+            selected_hover_color=BLUE_HOVER,
+            unselected_color=CONTROL,
+            unselected_hover_color=CONTROL_HOVER,
+            text_color=TEXT,
+            font=ctk.CTkFont(self.ui_font, 13, "bold"),
             height=40,
         )
         self.profile_segment.pack(anchor="w", fill="x")
         self.profile_segment.set(backend.PROFILE_LABELS[self.profile])
-        self.auth_explainer = ctk.CTkLabel(body, text="", text_color=MUTED, justify="left", wraplength=650, font=ctk.CTkFont("Segoe UI", 10))
+        self.auth_explainer = ctk.CTkLabel(body, text="", text_color=MUTED, justify="left", wraplength=650, font=ctk.CTkFont(self.ui_font, 12))
         self.auth_explainer.pack(anchor="w", pady=(12, 0))
 
         self.secret_card = self._card(page, "Credentials")
@@ -1025,27 +989,35 @@ class PortaMCPApp(ctk.CTk):
         t = ctk.CTkFrame(tunnel, fg_color="transparent")
         t.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 18))
         t.grid_columnconfigure(1, weight=1)
-        ctk.CTkLabel(t, text="Provider", text_color=MUTED, font=ctk.CTkFont("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w", padx=(0, 12), pady=6)
+        ctk.CTkLabel(t, text="Provider", text_color=MUTED, font=ctk.CTkFont(self.ui_font, 12, "bold")).grid(row=0, column=0, sticky="w", padx=(0, 12), pady=6)
         self.tunnel_provider = ctk.CTkOptionMenu(
             t,
             values=["Manual / custom HTTPS", "Tailscale", "Cloudflare Tunnel", "ngrok", "Other"],
-            fg_color="#182333",
-            button_color="#233249",
-            button_hover_color="#30435F",
-            width=210,
+            fg_color=CONTROL,
+            button_color=CONTROL,
+            button_hover_color=CONTROL_HOVER,
+            width=230,
+            height=40,
+            corner_radius=BUTTON_RADIUS,
+            text_color=TEXT,
+            font=ctk.CTkFont(self.ui_font, 13),
+            dropdown_fg_color=CARD,
+            dropdown_hover_color=CONTROL_HOVER,
+            dropdown_text_color=TEXT,
+            dropdown_font=ctk.CTkFont(self.ui_font, 13),
         )
         self.tunnel_provider.grid(row=0, column=1, sticky="w", pady=6)
         self.tunnel_provider.set(str(self.ui_state.get("tunnel_provider", "Manual / custom HTTPS")))
 
-        ctk.CTkLabel(t, text="Base URL", text_color=MUTED, font=ctk.CTkFont("Segoe UI", 10, "bold")).grid(row=1, column=0, sticky="w", padx=(0, 12), pady=6)
+        ctk.CTkLabel(t, text="Base URL", text_color=MUTED, font=ctk.CTkFont(self.ui_font, 12, "bold")).grid(row=1, column=0, sticky="w", padx=(0, 12), pady=6)
         self.tunnel_entry = ctk.CTkEntry(
             t,
             placeholder_text="https://your-host.example.com",
-            fg_color="#0B111A",
-            border_color="#2B3A4F",
+            fg_color="#081321",
+            border_color=BORDER,
             text_color=TEXT,
-            height=38,
-            font=ctk.CTkFont("Cascadia Mono", 10),
+            height=40,
+            font=ctk.CTkFont(self.mono_font, 12),
         )
         self.tunnel_entry.grid(row=1, column=1, sticky="ew", pady=6)
         self.tunnel_entry.insert(0, str(self.config_data.get("public_base_url", "")))
@@ -1055,26 +1027,29 @@ class PortaMCPApp(ctk.CTk):
         self.endpoint_preview = ctk.CTkLabel(
             t,
             text=f"MCP URL  {backend.endpoint_for(self.profile, self.config_data)}",
-            text_color="#9FD8FF",
-            fg_color="#0D1A26",
+            text_color=TEXT,
+            fg_color=CARD_ALT,
             corner_radius=8,
             anchor="w",
             padx=12,
             height=36,
-            font=ctk.CTkFont("Cascadia Mono", 10),
+            wraplength=650,
+            justify="left",
+            font=ctk.CTkFont(self.mono_font, 12),
         )
         self.endpoint_preview.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(12, 0))
+        self._wrap_to_width(self.endpoint_preview)
 
         server = self._card(page, "Local listener", "The MCP server binds locally; a tunnel/reverse proxy can publish it without changing this address.")
         server.grid(row=3, column=0, sticky="ew")
         s = ctk.CTkFrame(server, fg_color="transparent")
         s.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 18))
-        ctk.CTkLabel(s, text="Host", text_color=MUTED, font=ctk.CTkFont("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w")
-        self.host_entry = ctk.CTkEntry(s, width=180, fg_color="#0B111A", border_color="#2B3A4F", font=ctk.CTkFont("Cascadia Mono", 10))
+        ctk.CTkLabel(s, text="Host", text_color=MUTED, font=ctk.CTkFont(self.ui_font, 12, "bold")).grid(row=0, column=0, sticky="w")
+        self.host_entry = ctk.CTkEntry(s, width=180, height=40, fg_color="#081321", border_color=BORDER, font=ctk.CTkFont(self.mono_font, 12))
         self.host_entry.grid(row=1, column=0, sticky="w", pady=(4, 0))
         self.host_entry.insert(0, str(self.config_data.get("host", "127.0.0.1")))
-        ctk.CTkLabel(s, text="Port", text_color=MUTED, font=ctk.CTkFont("Segoe UI", 10, "bold")).grid(row=0, column=1, sticky="w", padx=(18, 0))
-        self.port_entry = ctk.CTkEntry(s, width=110, fg_color="#0B111A", border_color="#2B3A4F", font=ctk.CTkFont("Cascadia Mono", 10))
+        ctk.CTkLabel(s, text="Port", text_color=MUTED, font=ctk.CTkFont(self.ui_font, 12, "bold")).grid(row=0, column=1, sticky="w", padx=(18, 0))
+        self.port_entry = ctk.CTkEntry(s, width=110, height=40, fg_color="#081321", border_color=BORDER, font=ctk.CTkFont(self.mono_font, 12))
         self.port_entry.grid(row=1, column=1, sticky="w", padx=(18, 0), pady=(4, 0))
         self.port_entry.insert(0, str(self.config_data.get("port", 8765)))
         self._button(s, "Save listener", self.save_connection, "secondary", 118).grid(row=1, column=2, padx=(18, 0), pady=(4, 0))
@@ -1102,8 +1077,8 @@ class PortaMCPApp(ctk.CTk):
             ctk.CTkLabel(
                 self.secret_body,
                 text="No credential required. The endpoint is loopback-only by design.",
-                text_color="#C6D2E2",
-                font=ctk.CTkFont("Segoe UI", 11),
+                text_color="#C7D8EB",
+                font=ctk.CTkFont(self.ui_font, 13),
                 anchor="w",
             ).grid(row=0, column=0, sticky="ew")
             return
@@ -1119,24 +1094,25 @@ class PortaMCPApp(ctk.CTk):
             value = backend.oauth_password()
             rotate = self.rotate_oauth
 
-        ctk.CTkLabel(self.secret_body, text=label, text_color=MUTED, font=ctk.CTkFont("Segoe UI", 10, "bold"), anchor="w").grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(self.secret_body, text=label, text_color=MUTED, font=ctk.CTkFont(self.ui_font, 12, "bold"), anchor="w").grid(row=0, column=0, sticky="w")
         row = ctk.CTkFrame(self.secret_body, fg_color="transparent")
         row.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         row.grid_columnconfigure(0, weight=1)
         self.secret_entry = ctk.CTkEntry(
             row,
-            fg_color="#0B111A",
-            border_color="#2B3A4F",
+            fg_color="#081321",
+            border_color=BORDER,
             text_color=TEXT,
-            font=ctk.CTkFont("Cascadia Mono", 10),
+            font=ctk.CTkFont(self.mono_font, 12),
             show="*",
-            height=38,
+            height=40,
         )
         self.secret_entry.grid(row=0, column=0, sticky="ew")
         self.secret_entry.insert(0, value)
         self.secret_entry.configure(state="readonly")
         self.secret_visible = False
-        self._button(row, "Reveal", self.toggle_secret, "ghost", 78).grid(row=0, column=1, padx=(8, 0))
+        self.secret_toggle_button = self._button(row, "Reveal", self.toggle_secret, "ghost", 78)
+        self.secret_toggle_button.grid(row=0, column=1, padx=(8, 0))
         self._button(row, "Copy", lambda: self.copy_text(value, f"{label} copied"), "secondary", 70).grid(row=0, column=2, padx=(8, 0))
         self._button(row, "Rotate", rotate, "ghost", 76).grid(row=0, column=3, padx=(8, 0))
         if self.profile == "oauth":
@@ -1145,6 +1121,7 @@ class PortaMCPApp(ctk.CTk):
     def toggle_secret(self) -> None:
         self.secret_visible = not self.secret_visible
         self.secret_entry.configure(show="" if self.secret_visible else "*")
+        self.secret_toggle_button.configure(text="Hide" if self.secret_visible else "Reveal")
 
     def rotate_bearer(self) -> None:
         if not messagebox.askyesno("Rotate bearer token", "Existing clients using the old token will stop authenticating. Rotate it now?"):
@@ -1229,15 +1206,15 @@ class PortaMCPApp(ctk.CTk):
             command=self._preset_selected,
             selected_color=BLUE,
             selected_hover_color=BLUE_HOVER,
-            unselected_color="#182333",
-            unselected_hover_color="#223247",
+            unselected_color=CONTROL,
+            unselected_hover_color=CONTROL_HOVER,
             text_color=TEXT,
             height=40,
-            font=ctk.CTkFont("Segoe UI", 11, "bold"),
+            font=ctk.CTkFont(self.ui_font, 13, "bold"),
         )
         self.preset_segment.pack(fill="x")
         self.preset_segment.set(backend.PRESET_LABELS.get(self.preset, "Custom"))
-        self.preset_desc = ctk.CTkLabel(p, text="", text_color=MUTED, justify="left", wraplength=650, font=ctk.CTkFont("Segoe UI", 10))
+        self.preset_desc = ctk.CTkLabel(p, text="", text_color=MUTED, justify="left", wraplength=650, font=ctk.CTkFont(self.ui_font, 12))
         self.preset_desc.pack(anchor="w", pady=(12, 0))
         self._update_preset_desc()
 
@@ -1246,12 +1223,12 @@ class PortaMCPApp(ctk.CTk):
         r = ctk.CTkFrame(roots, fg_color="transparent")
         r.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 18))
         r.grid_columnconfigure((0, 1), weight=1)
-        ctk.CTkLabel(r, text="ALLOWED SCOPES", text_color=MUTED, font=ctk.CTkFont("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky="w")
-        ctk.CTkLabel(r, text="DENIED PATHS", text_color=MUTED, font=ctk.CTkFont("Segoe UI", 9, "bold")).grid(row=0, column=1, sticky="w", padx=(12, 0))
-        self.allowed_roots_box = ctk.CTkTextbox(r, height=112, fg_color="#0B111A", border_width=1, border_color="#2B3A4F", font=ctk.CTkFont("Cascadia Mono", 10))
+        ctk.CTkLabel(r, text="ALLOWED SCOPES", text_color=MUTED, font=ctk.CTkFont(self.ui_font, 11, "bold")).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(r, text="DENIED PATHS", text_color=MUTED, font=ctk.CTkFont(self.ui_font, 11, "bold")).grid(row=0, column=1, sticky="w", padx=(12, 0))
+        self.allowed_roots_box = ctk.CTkTextbox(r, height=112, fg_color="#081321", border_width=1, border_color=BORDER, font=ctk.CTkFont(self.mono_font, 12))
         self.allowed_roots_box.grid(row=1, column=0, sticky="ew", pady=(5, 6), padx=(0, 6))
         self.allowed_roots_box.insert("1.0", "\n".join(map(str, self.config_data.get("allowed_roots", []))))
-        self.denied_roots_box = ctk.CTkTextbox(r, height=112, fg_color="#0B111A", border_width=1, border_color="#2B3A4F", font=ctk.CTkFont("Cascadia Mono", 10))
+        self.denied_roots_box = ctk.CTkTextbox(r, height=112, fg_color="#081321", border_width=1, border_color=BORDER, font=ctk.CTkFont(self.mono_font, 12))
         self.denied_roots_box.grid(row=1, column=1, sticky="ew", pady=(5, 6), padx=(6, 0))
         self.denied_roots_box.insert("1.0", "\n".join(map(str, self.config_data.get("denied_roots", []))))
         self._button(r, "Add folder scope", self.add_allowed_root, "ghost", 132).grid(row=2, column=0, sticky="w")
@@ -1260,7 +1237,7 @@ class PortaMCPApp(ctk.CTk):
             r,
             text="Scopes are selected from this computer at runtime. PortaMCP never grants a detected volume automatically.",
             text_color=MUTED,
-            font=ctk.CTkFont("Segoe UI", 9),
+            font=ctk.CTkFont(self.ui_font, 11),
             anchor="w",
             justify="left",
             wraplength=660,
@@ -1272,7 +1249,7 @@ class PortaMCPApp(ctk.CTk):
             justify="left",
             anchor="w",
             wraplength=660,
-            font=ctk.CTkFont("Segoe UI", 9),
+            font=ctk.CTkFont(self.ui_font, 11),
         ).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(10, 0))
 
         capabilities = self._card(page, "Capabilities", "These switches are enforced by the MCP policy layer, not just hidden in the UI.")
@@ -1306,17 +1283,19 @@ class PortaMCPApp(ctk.CTk):
                 text=label,
                 variable=var,
                 progress_color=ACCENT,
-                button_color="#E9F7F4",
+                button_color="#EFF6FF",
                 button_hover_color="#FFFFFF",
-                text_color="#DCE5F1" if supported else "#68788B",
-                font=ctk.CTkFont("Segoe UI", 11, "bold"),
+                text_color=TEXT if supported else "#728BA8",
+                font=ctk.CTkFont(self.ui_font, 13, "bold"),
                 command=self._customized_security,
                 state="normal" if supported else "disabled",
             )
             switch.pack(anchor="w", padx=12, pady=(11, 2))
             if not supported:
                 desc = desc + " Unavailable on this platform/session."
-            ctk.CTkLabel(item, text=desc, text_color=MUTED, font=ctk.CTkFont("Segoe UI", 9), anchor="w").pack(anchor="w", padx=12, pady=(0, 11))
+            description = ctk.CTkLabel(item, text=desc, text_color=MUTED, font=ctk.CTkFont(self.ui_font, 12), anchor="w", justify="left", wraplength=320)
+            description.pack(fill="x", padx=12, pady=(0, 14))
+            self._wrap_to_width(description)
 
         advanced = self._card(page, "Limits & runtime policy", "Adjust payload ceilings and command timeout. Conservative defaults are recommended for remote use.")
         advanced.grid(row=3, column=0, sticky="ew")
@@ -1330,8 +1309,8 @@ class PortaMCPApp(ctk.CTk):
         ]
         self.limit_entries: dict[str, tuple[ctk.CTkEntry, int]] = {}
         for idx, (label, key, divisor) in enumerate(fields):
-            ctk.CTkLabel(a, text=label, text_color=MUTED, font=ctk.CTkFont("Segoe UI", 9, "bold")).grid(row=0, column=idx, sticky="w", padx=(0 if idx == 0 else 10, 0))
-            entry = ctk.CTkEntry(a, width=150, fg_color="#0B111A", border_color="#2B3A4F")
+            ctk.CTkLabel(a, text=label, text_color=MUTED, font=ctk.CTkFont(self.ui_font, 11, "bold")).grid(row=0, column=idx, sticky="w", padx=(0 if idx == 0 else 10, 0))
+            entry = ctk.CTkEntry(a, width=150, height=40, fg_color="#081321", border_color=BORDER)
             entry.grid(row=1, column=idx, sticky="ew", padx=(0 if idx == 0 else 10, 0), pady=(5, 0))
             raw = int(self.config_data.get(key, 0))
             entry.insert(0, str(raw / divisor if divisor != 1 else raw).rstrip("0").rstrip(".") if divisor != 1 else str(raw))
@@ -1450,7 +1429,7 @@ class PortaMCPApp(ctk.CTk):
         page = self._scroll_page()
         server = self._card(page, "Server output", "Live stdout/stderr is captured when PortaMCP is launched from this control center.")
         server.grid(row=0, column=0, sticky="ew", pady=(0, 16))
-        self.server_log_box = ctk.CTkTextbox(server, height=270, fg_color="#080C12", border_width=0, text_color="#C8D6E7", font=ctk.CTkFont("Cascadia Mono", 9))
+        self.server_log_box = ctk.CTkTextbox(server, height=270, fg_color="#060F1C", border_width=0, text_color="#C7D8EB", font=ctk.CTkFont(self.mono_font, 11))
         self.server_log_box.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
         self.server_log_box.insert("end", "".join(self._server_log_buffer))
         self.server_log_box.configure(state="disabled")
@@ -1460,7 +1439,7 @@ class PortaMCPApp(ctk.CTk):
 
         audit = self._card(page, "Audit trail", "Local JSONL audit records emitted by policy-protected tools.")
         audit.grid(row=1, column=0, sticky="ew")
-        self.audit_box = ctk.CTkTextbox(audit, height=300, fg_color="#080C12", border_width=0, text_color="#AFC0D5", font=ctk.CTkFont("Cascadia Mono", 9))
+        self.audit_box = ctk.CTkTextbox(audit, height=300, fg_color="#060F1C", border_width=0, text_color="#B3C7DF", font=ctk.CTkFont(self.mono_font, 11))
         self.audit_box.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
         self.refresh_audit()
         controls2 = ctk.CTkFrame(audit, fg_color="transparent")
@@ -1477,10 +1456,10 @@ class PortaMCPApp(ctk.CTk):
         self.diagnostics_box = ctk.CTkTextbox(
             diagnostics,
             height=300,
-            fg_color="#080C12",
+            fg_color="#060F1C",
             border_width=0,
-            text_color="#AFC0D5",
-            font=ctk.CTkFont("Cascadia Mono", 9),
+            text_color="#B3C7DF",
+            font=ctk.CTkFont(self.mono_font, 11),
         )
         self.diagnostics_box.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
         self.refresh_diagnostics()
@@ -1533,14 +1512,14 @@ class PortaMCPApp(ctk.CTk):
             d,
             text="Checking dependencies...",
             text_color=MUTED,
-            font=ctk.CTkFont("Segoe UI", 12, "bold"),
+            font=ctk.CTkFont(self.ui_font, 12, "bold"),
         )
         self.dependency_status_label.grid(row=0, column=0, sticky="w")
         self._button(d, "Repair / update dependencies", self.run_install, "secondary", 185).grid(row=0, column=1, sticky="e")
-        self.install_progress = ctk.CTkProgressBar(d, mode="determinate", progress_color=ACCENT, fg_color="#182333")
+        self.install_progress = ctk.CTkProgressBar(d, mode="determinate", progress_color=ACCENT, fg_color=CONTROL)
         self.install_progress.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         self.install_progress.set(0)
-        self.install_log = ctk.CTkTextbox(d, height=150, fg_color="#080C12", border_width=0, text_color="#B9C8DA", font=ctk.CTkFont("Cascadia Mono", 9))
+        self.install_log = ctk.CTkTextbox(d, height=150, fg_color="#060F1C", border_width=0, text_color="#B3C7DF", font=ctk.CTkFont(self.mono_font, 11))
         self.install_log.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(10, 0))
         self.install_log.insert("end", "Ready.\n")
 
@@ -1559,8 +1538,8 @@ class PortaMCPApp(ctk.CTk):
             b,
             text=bridge_text,
             text_color=bridge_color,
-            font=ctk.CTkFont("Segoe UI", 11, "bold"),
-        ).pack(side="left")
+            font=ctk.CTkFont(self.ui_font, 13, "bold"),
+        ).pack(anchor="w", pady=(0, 12))
         self._button(b, "Open extension folder", lambda: backend.open_path(backend.CHROME_EXTENSION_DIR), "ghost", 145).pack(side="right")
         self._button(b, "Open chrome://extensions", lambda: backend.open_url("chrome://extensions/"), "secondary", 155).pack(side="right", padx=8)
 
@@ -1576,15 +1555,15 @@ class PortaMCPApp(ctk.CTk):
             ("Python", str(backend.VENV_PYTHON)),
         ]
         for idx, (label, value) in enumerate(rows):
-            ctk.CTkLabel(p, text=label, text_color=MUTED, width=110, anchor="w", font=ctk.CTkFont("Segoe UI", 10, "bold")).grid(row=idx, column=0, sticky="w", pady=4)
+            ctk.CTkLabel(p, text=label, text_color=MUTED, width=110, anchor="w", font=ctk.CTkFont(self.ui_font, 12, "bold")).grid(row=idx, column=0, sticky="w", pady=4)
             ctk.CTkLabel(
                 p,
                 text=value,
-                text_color="#DCE5F1",
+                text_color=TEXT,
                 anchor="w",
                 justify="left",
                 wraplength=430,
-                font=ctk.CTkFont("Cascadia Mono", 9),
+                font=ctk.CTkFont(self.mono_font, 11),
             ).grid(row=idx, column=1, sticky="ew", pady=4)
         self._button(p, "Open project", lambda: backend.open_path(backend.PROJECT_ROOT), "ghost", 106).grid(row=0, column=2, rowspan=2, padx=(12, 0))
         self._button(p, "Open config", lambda: backend.open_path(backend.CONFIG_PATH), "ghost", 106).grid(row=2, column=2, rowspan=2, padx=(12, 0))
@@ -1921,7 +1900,7 @@ class PortaMCPApp(ctk.CTk):
             if running and healthy:
                 self.status_pill.configure(
                     text="  SYSTEM HEALTHY  ",
-                    fg_color="#071E24",
+                    fg_color="#092B32",
                     text_color="#5EEAC5",
                     border_color="#15504D",
                 )
@@ -1935,9 +1914,9 @@ class PortaMCPApp(ctk.CTk):
             else:
                 self.status_pill.configure(
                     text="  SYSTEM OFFLINE  ",
-                    fg_color="#101824",
-                    text_color="#8293A7",
-                    border_color="#29384B",
+                    fg_color=CARD_ALT,
+                    text_color=MUTED,
+                    border_color=BORDER,
                 )
 
             if emergency:
@@ -1951,10 +1930,10 @@ class PortaMCPApp(ctk.CTk):
             else:
                 self.sidebar_emergency_btn.configure(
                     text="Emergency Deny",
-                    fg_color="transparent",
-                    hover_color="#28131B",
-                    text_color="#FF7D89",
-                    border_color="#7B2A37",
+                    fg_color=BUTTON_STYLES["danger"][0],
+                    hover_color=BUTTON_STYLES["danger"][1],
+                    text_color=BUTTON_STYLES["danger"][2],
+                    border_color=BUTTON_STYLES["danger"][3],
                 )
 
             if self.current_page == "dashboard":
@@ -1977,7 +1956,7 @@ class PortaMCPApp(ctk.CTk):
                             fg_color=(
                                 GOOD
                                 if running and healthy
-                                else (WARN if running else "#52657B")
+                                else (WARN if running else "#526C8A")
                             )
                         )
                     if hasattr(self, "metric_server_detail"):
@@ -2072,7 +2051,7 @@ class PortaMCPApp(ctk.CTk):
                             fg_color=(
                                 ACCENT
                                 if enabled
-                                else ("#41546A" if supported else "#2F3946")
+                                else ("#526C8A" if supported else "#33485F")
                             )
                         )
                         state.configure(
@@ -2080,7 +2059,7 @@ class PortaMCPApp(ctk.CTk):
                             text_color=(
                                 ACCENT
                                 if enabled
-                                else ("#607287" if supported else "#4C5B6C")
+                                else MUTED
                             ),
                         )
         except Exception:
@@ -2099,7 +2078,11 @@ class PortaMCPApp(ctk.CTk):
 
     def _mark_dirty(self, dirty: bool) -> None:
         self._dirty = dirty
-        self.dirty_badge.configure(text="RESTART REQUIRED" if dirty else "")
+        self.dirty_badge.configure(text="Restart required to apply saved changes" if dirty else "")
+        if dirty:
+            self.dirty_badge.grid()
+        else:
+            self.dirty_badge.grid_remove()
 
     def toast(self, text: str) -> None:
         # Lightweight in-app toast, no modal interruption.
@@ -2108,12 +2091,12 @@ class PortaMCPApp(ctk.CTk):
         toast = ctk.CTkLabel(
             self,
             text=text,
-            fg_color="#172231",
-            text_color="#EAF2FA",
+            fg_color="#163251",
+            text_color=TEXT,
             corner_radius=9,
             padx=14,
             pady=8,
-            font=ctk.CTkFont("Segoe UI", 10),
+            font=ctk.CTkFont(self.ui_font, 12),
         )
         self._toast = toast
         toast.place(relx=0.98, rely=0.96, anchor="se")

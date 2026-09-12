@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.6.0" src="https://img.shields.io/badge/version-0.6.0-2f8f83">
+  <img alt="Version 0.6.0" src="https://img.shields.io/badge/version-0.6.0-2563eb">
   <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-357ec7">
   <img alt="Ubuntu 24.04 tested" src="https://img.shields.io/badge/Linux-Ubuntu%2024.04%20tested-6c757d">
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-4c78a8">
@@ -31,6 +31,8 @@ The Control Center is the normal way to use the project. It handles first-run in
 <p align="center">
   <img src="assets/screenshots/overview.png" alt="PortaMCP Control Center overview" width="920">
 </p>
+
+The Control Center screenshots show the current blue interface with demo configuration. Fonts and filesystem paths can vary between Windows and Linux.
 
 ## Design goals
 

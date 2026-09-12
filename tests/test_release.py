@@ -2209,9 +2209,11 @@ def test_control_center_support_prompt_and_donation_link_are_wired() -> None:
     assert "def _donate_from_popup" in source
     assert "def _close_support_popup" in source
     assert source.count("webbrowser.open_new_tab(SUPPORT_URL)") == 2
-    assert 'text="\\u2615  Support PortaMCP"' in source
-    assert 'text="\\u2764\\ufe0f  Thank you!"' in source
-    assert "\\U0001F622  Maybe next time - thanks for using PortaMCP!" in source
+    assert '"Support PortaMCP", self._open_support_page, "support"' in source
+    assert '"Buy me a coffee", self._donate_from_popup, "support"' in source
+    assert 'text="Support page opened in your browser."' in source
+    close = source.split("def _close_support_popup", 1)[1].split("def _destroy_support_popup", 1)[0]
+    assert "self._destroy_support_popup()" in close
 
 
 def test_control_center_navigation_is_cached_and_setup_check_is_async() -> None:
