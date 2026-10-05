@@ -1028,7 +1028,7 @@ class OAuthGateMiddleware:
                     status_code=401,
                     headers={
                         "WWW-Authenticate": (
-                            f'Bearer resource_metadata="{self.oauth.base_url}/.well-known/oauth-protected-resource/mcp", '
+                            f'Bearer resource_metadata="{self.oauth.base_url}/.well-known/oauth-protected-resource", '
                             f'scope="{SUPPORTED_SCOPE}"'
                         ),
                         "Cache-Control": "no-store",

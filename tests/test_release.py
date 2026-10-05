@@ -252,6 +252,27 @@ def test_oauth_requires_https_public_base(tmp_path: Path) -> None:
     assert resource["authorization_servers"] == ["https://mcp.example.test"]
 
 
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_oauth_mcp_unauthenticated_challenge_uses_canonical_metadata(
+    tmp_path: Path, method: str
+) -> None:
+    base_url = "https://rib.taile5dec9.ts.net"
+    settings = _runtime_settings(tmp_path, public_base_url=base_url)
+    with TestClient(build_oauth_app(settings), base_url=base_url) as client:
+        response = client.request(method, "/mcp")
+        assert response.status_code == 401
+        assert response.headers["www-authenticate"] == (
+            f'Bearer resource_metadata="{base_url}/.well-known/oauth-protected-resource", '
+            'scope="pc:control"'
+        )
+
+        canonical = client.get("/.well-known/oauth-protected-resource")
+        alias = client.get("/.well-known/oauth-protected-resource/mcp")
+        assert canonical.status_code == alias.status_code == 200
+        assert canonical.json() == alias.json()
+        assert canonical.json()["resource"] == f"{base_url}/mcp"
+
+
 def test_oauth_mcp_transport_stays_sessionful(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
